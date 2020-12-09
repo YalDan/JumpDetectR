@@ -28,14 +28,14 @@ LM_JumpTest <-function(DATA){
   
   # Get n
   n <- length(P_tilde)
-  T_large <- n
+  T_large <- length(unique(DT_ts_p$date))
   
   # acf #
   bacf <- acf(DT_ts_p[!is.na(log_ret)]$log_ret, plot = FALSE)
   bacfdf <- with(bacf, data.frame(lag, acf))
   
   # CI # https://stackoverflow.com/questions/42753017/adding-confidence-intervals-to-plotted-acf-in-ggplot2
-  alpha <- 0.95
+  alpha <- 0.999
   conf.lims <- c(-1,1)*qnorm((1 + alpha)/2)/sqrt(bacf$n.used)
   ##
   lag_outside_conf.lim <- sort(c(which(bacfdf$acf < conf.lims[1]), which(bacfdf$acf > conf.lims[2])))
@@ -43,11 +43,9 @@ LM_JumpTest <-function(DATA){
   # Specify k = maximum lag value + 1 
   k <- max(lag_outside_conf.lim) + 1
   if (k == -Inf) {k <- 1} # if no autocorrelation detected
-  if (k > 10){
-    if (n>=86400) {k <- 10}
-    if (n==86400/5) {k <- 6}
-    if (n==86400/15) {k <- 3}
-  }
+  if (n>=86400 & k > 10) {k <- 10}
+  if (n==86400/5 & k > 5) {k <- 5}
+  if (n==86400/15 & k > 3) {k <- 3}
   
   # Get n-k
   n_diff <- n - k
@@ -77,7 +75,7 @@ LM_JumpTest <-function(DATA){
   if (C*sqrt(floor(n/k)) == 0) {M <- 1
   } else {
     M <- C*sqrt(floor(n/k))}
-
+  
   
   # Calculate P_hat_tj (first iteration)
   G_n_k <- seq(from = 1, to = n, by = k) # Grid for first subsampling
@@ -85,7 +83,7 @@ LM_JumpTest <-function(DATA){
   G_n_kM <- seq(from = 1, to = n, by = k*M) # Grid for second subsampling
   G_n_kM <- c(G_n_kM, n) # append last row
   P_tilde_t_ik <- P_tilde[G_n_k]
-
+  
   # Calculate P_hat_tj (second iteration) #
   
   # preallocate
@@ -97,7 +95,7 @@ LM_JumpTest <-function(DATA){
   
   # keep only those times t_j where they lie in the grid G_n_kM
   P_hat_tj  <- P_hat_tj[G_n_kM]
-
+  
   # Calculate L_tj #
   L_tj <- c(0,diff(P_hat_tj))
   shift(P_hat_tj, 1, type = "lead") - P_hat_tj
@@ -142,25 +140,23 @@ LM_JumpTest <-function(DATA){
   ## ##
   
   sigma_hat <- sigma_hat_trunc
-
+  
   plimVn <- 2/3 * sigma_hat^2 * C^2 * T_large + 2 * q_hat^2
   
   # Calculate Chi_tj
-  Chi_tj <- sqrt(M) / sqrt(V_n) * L_tj
+  Chi_tj <- sqrt(M) / sqrt(plimVn) * L_tj
   
   # Define A_n & B_n
   logpernkM <- log(floor(n/(k*M)))
   An <- sqrt(2*logpernkM)  - (log(pi)+log(logpernkM))/(2*sqrt(2*logpernkM))
   Bn <- 1 / (sqrt(2 * logpernkM))
   
-  # Calculate Xi_hat
-  Xi_hat <- Bn * (abs(Chi_tj) - An)
-  
   # Jump threshold
-  significance_level <- 0.1
-  beta_star   <-  -log(-log(1-significance_level)) # Jump threshold
+  significance_level <- 0.01
+  beta_star   <-  -log(-log(1-significance_level)) 
+  critical_value <- beta_star*Bn + An # Jump threshold
   
-  J   <-  as.numeric(Xi_hat > beta_star) # Test threshold
+  J   <-  as.numeric(abs(Chi_tj) > critical_value) # Test threshold
   J   <-  J*sign(Chi_tj) # Add direction
   
   
@@ -184,9 +180,9 @@ LM_JumpTest <-function(DATA){
                     "B_n" = Bn)
   res[,`:=` ('L_t_j' = L_tj,
              'Chi_t_j' = Chi_tj,
-             'Xihat' = Xi_hat,
              'sign_level' = significance_level,
              'betastar' = beta_star,
+             'criticalvalue' = critical_value,
              'Jump_indicator' = J)]
   
   return(res)
