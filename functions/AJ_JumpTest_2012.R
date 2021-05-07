@@ -9,9 +9,9 @@ Sys.setenv(LANG = "en") # set environment language to English
 Sys.setlocale("LC_TIME", "en_US.UTF-8") # set timestamp language to English
 ## ##
 
-AJ_JumpTest <- function(DATA){
+AJ_JumpTest <- function(DATA, alpha = 0.1){
   
-  # will loop to compute the values of B(p,u,delta) for all those values below
+   # will loop to compute the values of B(p,u,delta) for all those values below
   pvec <- seq(from = 0, to = 6, by = 0.25)
   
   # atrunc is expressed in terms of numbers of stdev of the continuous part;  use 10^10 for no truncation
@@ -21,7 +21,7 @@ AJ_JumpTest <- function(DATA){
   gammavec <- seq(from = 1, to = 3, by = 0.25)
   
   # specify possible deltas; for simplicity of coding, make sure those are multiples of timeinterval = 5 in the dataset
-  deltavec <- c(5, 10, 15, 30, 45, 60, 120, 300, 600, 1800) 
+  deltavec <- c(1, 5, 10, 15, 30, 45, 60, 120, 300, 600, 1800) 
   
   # specify possible ks
   kvec <- 1:3
@@ -29,14 +29,19 @@ AJ_JumpTest <- function(DATA){
   # read data
   tmp_DT <- DATA
   
+  # extract ID if available
+  id_dummy <- NA
+  if ("id" %in% names(tmp_DT)) {id_dummy <- tmp_DT[,id][1]}
+  
+  
   if (nrow(tmp_DT) == 86400){
     subs <- seq(0,nrow(tmp_DT), by = 5)
     subs[1] <- 1
     tmp_DT <- tmp_DT[subs]
   }
   
-  dX <- tmp_DT[, log_ret]# both X and dX have length n
-  x0 <- log(tmp_DT[,p][1]) # initial value
+  dX <- tmp_DT[!is.na(log_ret), log_ret] # both X and dX have length n
+  x0 <- log(tmp_DT[!is.na(log_ret), p][1]) # initial value
   
   T_large <- 1/365.25
   n <- length(dX)
@@ -63,7 +68,7 @@ AJ_JumpTest <- function(DATA){
     nblagj <- unique(par_grid[nblag_j %in% sort(unique(par_grid$nblag_j))[i]]$nblag_j)
     deltaj <-  unique(par_grid[nblag_j %in% sort(unique(par_grid$nblag_j))[i]]$delta_j)
     dXobsj <- sort(abs(X[seq(from = (nblagj+1), to = n, by = nblagj)] - X[seq(from = 1, to = (n-nblagj), by = nblagj)])) # length(dXobsj) is equal to nj-1
-    sigma_hat <- sqrt( (1/T_large) * sum( (abs(dXobsj)^2) * ( abs(dXobsj) <= 3 * 0.30 * deltaj^(1/2) )) )
+    sigma_hat <- sqrt( (1/T_large) * sum( (abs(dXobsj)^2) * ( abs(dXobsj) <= 3 * 0.6 * deltaj^(1/2) )) )
     par_grid[nblag_j %in% nblagj, sigmahat := sigma_hat]
   }
   
@@ -107,7 +112,7 @@ AJ_JumpTest <- function(DATA){
   
   SJ <- rbindlist(result_list)[gamma == gammavec[1] & a == max(par_grid$a) & p %in% pvec_SJ & k %in%  kvec_SJ & delta %in% deltavec_SJ]
   B_lower <- rbindlist(result_list)[gamma == gammavec[1] & a == max(par_grid$a)& p %in% pvec_SJ & k == kvec[1] & delta %in% deltavec_SJ]
-  
+
   for (i in unique(kvec_SJ)){
     SJ[k == i, SJ := B / B_lower$B]
   }
@@ -130,22 +135,20 @@ AJ_JumpTest <- function(DATA){
   
   ## add limits and indicators ##
   DT_SJ <- data.table("date" =  tmp_DT[,date][1],
-                      "id" =  tmp_DT[,id][1],
+                      "id" =  id_dummy,
                       "s" =  tmp_DT[,s][1],
                       SJ)
   DT_SJ[, limit_noise := 1]
   DT_SJ[, limit_jump := k^(p/2-1)]
-  DT_SJ[SJ >= limit_noise & SJ < limit_jump, Jump_indicator := 1]
   ## 
   
   ## add limits and indicators ##
   DT_SFA <- data.table("date" =  tmp_DT[,date][1],
-                       "id" =  tmp_DT[,id][1],
+                       "id" =  id_dummy,
                        "s" =  tmp_DT[,s][1],
                        SFA)
   DT_SFA[, limit_infinite_activity := 1]
   DT_SFA[, limit_finite_activity := k^(p/2-1)]
-  DT_SFA[SFA >= limit_infinite_activity & SFA < limit_finite_activity, Finite_jump_indicator := 1]
   ##
   
   
