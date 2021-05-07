@@ -14,27 +14,32 @@ source("./functions/make_return_file.R", echo = F)
 source("./functions/LM_JumpTest_2012.R", echo = F)
 source("./functions/AJ_JumpTest_2012.R", echo = F)
 source("./functions/lapply_jump_test.R", echo = F)
+source("./functions/AJL_Jump_Test_2012_functions.R", echo = F)
+source("./functions/AJL_Jump_Test_2012.R", echo = F)
+source("./functions/jacod_preaveraging.R", echo = F)
+source("./functions/AJ_09_variation.R", echo = F)
+source("./functions/split_by_id.R", echo = F)
+source("./functions/remove_bounceback.R", echo = F)
+#### ##
 
-#### load data #####
-source("./load_data.R", echo = T)
+
+### load aggregate dataset ###
+DT_agg_sub <- fread("./data/raw/DT_agg_sub.csv")
+## ##
 
 #### evaluate by id ####
 ## split data.table ##
-source("./split_by_id.R", echo = T)
+DT_split_noimpute <- split_by_id(DT_agg_sub, IMPUTATION = FALSE)
+DT_split_impute <- split_by_id(DT_agg_sub, IMPUTATION = TRUE)
+DT_agg_split_noimpute <- rbindlist(DT_split_noimpute)
+DT_agg_split_impute <- rbindlist(DT_split_impute)
 
-## get result ##
-LM_result_id <- jump_test(DT_split, LM_JumpTest)
+## get LM result ##
+DT_LM_result_id <- jump_test(DT_split_noimpute, which_test = "LM_JumpTest")
 
-fwrite(LM_result_id, file = "./data/JumpTestResult/DT_LM_result_id.csv")
+## get AJL result ##
+DT_AJL_result_id <- jump_test(DT_split_impute, which_test = "AJL_JumpTest")
+
+fwrite(DT_LM_result_id, file = "./data/JumpTestResult/DT_LM_result_id.csv")
+fwrite(DT_AJL_result_id, file = "./data/JumpTestResult/DT_AJL_result_id.csv")
 ## ##
-
-#### evaluate by id_s ####
-## split data.table ##
-source("./split_by_id_s.R", echo = T)
-
-## get result ##
-LM_result_id_s <- jump_test(DT_split, LM_JumpTest)
-
-fwrite(LM_result_id_s, file = "./data/JumpTestResult/DT_LM_result_id_s.csv")
-## ##
-

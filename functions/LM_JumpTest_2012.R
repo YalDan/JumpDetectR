@@ -9,14 +9,14 @@ Sys.setenv(LANG = "en") # set environment language to English
 Sys.setlocale("LC_TIME", "en_US.UTF-8") # set timestamp language to English
 ## ##
 
-LM_JumpTest <-function(DATA){
+LM_JumpTest <-function(DATA, variation_estimate = "Jacod_10"){
   
   # throw out non high frequency data
-  if(nrow(DATA) < 86400*0.75/15) return(data.table())
+  #if(nrow(DATA) < 86400*0.75/15) return(data.table())
   
   # preprocess data #
   DT_ts_p <- DATA
-  DT_ts_p[, h := hour(t)] # add hour indicator
+  # DT_ts_p[, h := hour(t)] # add hour indicator
   DT_ts_p[, count := 1:nrow(DT_ts_p)] # add index
   
   # extract ID if available
@@ -24,7 +24,7 @@ LM_JumpTest <-function(DATA){
   if ("id" %in% names(DT_ts_p)) {id_dummy <- DT_ts_p[,id][1]}
   
   # P tilde
-  P_tilde <- log(DT_ts_p$p)
+  P_tilde <- log(DT_ts_p[,p])
   
   # Get n
   n <- length(P_tilde)
@@ -43,9 +43,9 @@ LM_JumpTest <-function(DATA){
   # Specify k = maximum lag value + 1 
   k <- max(lag_outside_conf.lim) + 1
   if (k == -Inf) {k <- 1} # if no autocorrelation detected
-  if (n>=86400 & k > 10) {k <- 10}
-  if (n==86400/5 & k > 5) {k <- 5}
-  if (n==86400/15 & k > 3) {k <- 3}
+  # if (n>=86400 & k > 10) {k <- 10}
+  # if (n==86400/5 & k > 5) {k <- 5}
+  # if (n==86400/15 & k > 3) {k <- 3}
   
   # Get n-k
   n_diff <- n - k
@@ -72,7 +72,7 @@ LM_JumpTest <-function(DATA){
                                                      sep = " - "))
   } 
   
-  if (C*sqrt(floor(n/k)) == 0) {M <- 1
+  if (C*sqrt(floor(n/k)) < 1) {M <- 1
   } else {
     M <- C*sqrt(floor(n/k))}
   
@@ -102,47 +102,23 @@ LM_JumpTest <-function(DATA){
   
   # Calculate limit #
   V_n <- var(sqrt(M)*L_tj)
+
+  if (variation_estimate == "AJ_09"){
   
-  ## Calculate sigma_hat ## modulated bipower variation (MBV) & sigma_hat ##
+    ## Calculate sigma_hat according to Ait-Sahalia & Jacod (2009) "Jump Activity" ##
+    sigma_hat <- AJ_09_variation(DT_ts_p)
   
-  ## Ait-Sahalia sigma_hat ##
-  # initialize dX
-  dX <- DT_ts_p$log_ret # both X and dX have length n
-  x0 <- log(DT_ts_p[, p][1]) # initial value
-  
-  # specify parameter
-  delta <- 1
-  T_AJ <- 1/365.25 # 1/365.25 = one calendar day, 1/252 = one exchange trading day, 21/252 = one month, 1/4 = one quarter, 1 = one year
-  nblagj <- delta
-  deltaj <- delta/(6.5*60*60*365.25) # measured in years, this is the value of delta corresponding to that jindex
-  
-  # initialize X
-  X <- x0 + cumsum(dX) # do this instead of X=log(price) to avoid including the large overnight returns
-  dXobsj <- sort(abs(X[seq(from = (nblagj+1), to = n, by = nblagj)] - X[seq(from = 1, to = (n-nblagj), by = nblagj)])) # length(dXobsj) is equal to nj-1
-  
-  # calculate sigma_hat (realized bipower variation truncated)
-  sigma_hat_as <- sqrt( (1/T_AJ) * sum( ((dXobsj)^2) * ( (dXobsj) <= 3 * 0.60 * deltaj^(1/2) )) )
-  sigmahat <- sigma_hat_as
-  ## ##
-  
-  ## Jacod et al. (2010) pre-averaging & truncated realized multipower variation ##
-  
-  # specify parameters
-  k_jac <- 3 # choose from: 1:3
-  p <- 2  # choose from: seq(from = 0, to = 6, by = 0.25)
-  gamma <- 3 # choose from: seq(from = 1, to = 3, by = 0.25)
-  atrunc <- 10^10 # choose from: c(2:20, 25, 30, 40, 50, 60, 75, 100, 10^10)
-  
-  nblagjk <- nblagj * k_jac
-  dXobsjk <- sort(abs(X[seq(from = (nblagjk+1), to = n, by = nblagjk)] - X[seq(from = 1, to = (n-nblagjk), by = nblagjk)]))
-  
-  sigma_hat_trunc <- sum( ((dXobsjk)^p) * ( (dXobsjk) < gamma * atrunc * sigmahat * deltaj^(1/2) ))
-  ## ##
-  
-  sigma_hat <- sigma_hat_trunc
+    
+  } else if (variation_estimate == "HP_13"){
+    ## Calculate sigma_hat according to Hautsch & Podolskij (2013) "Modulated realized covariance" ##
+    sigma_hat <-  highfrequency::rMRC(xts(DT_ts_p[,p], order.by = DT_ts_p[,t]))
+  } else if (variation_estimate == "Jacod_10"){
+    ## Calculate sigma_hat according to Jacod et al. (2010) "Pre-averaging" ##
+    sigma_hat <-  jacod_preaveraging(DT_ts_p)
+  }
   
   plimVn <- 2/3 * sigma_hat^2 * C^2 * T_large + 2 * q_hat^2
-  
+
   # Calculate Chi_tj
   Chi_tj <- sqrt(M) / sqrt(plimVn) * L_tj
   
@@ -172,6 +148,7 @@ LM_JumpTest <-function(DATA){
                     "k" = k,
                     "M" = M,
                     "kM" = k*M,
+                    "C" = C,
                     "qhat" = q_hat,
                     "sigmahat" = sigma_hat,
                     "Vn" = V_n,
