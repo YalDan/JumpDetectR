@@ -2,8 +2,6 @@
 libraries = c("data.table", "xts", "quantmod")
 lapply(libraries, function(x) if (!(x %in% installed.packages())) {install.packages(x)} )
 invisible(lapply(libraries, library, quietly = TRUE, character.only = TRUE))
-if (!("qmao" %in% installed.packages())) {install.packages("qmao", repos="http://R-Forge.R-project.org")} 
-library("qmao")
 ## ##
 
 ## settings ##

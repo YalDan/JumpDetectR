@@ -1,5 +1,5 @@
 # install and load packages ##
-libraries = c("data.table", "texreg", "plm", "sandwich", "lmtest")
+libraries = c("data.table", "texreg", "plm", "sandwich", "lmtest", "lubridate")
 lapply(libraries, function(x) if (!(x %in% installed.packages())) {install.packages(x)} )
 invisible(lapply(libraries, library, quietly = TRUE, character.only = TRUE))
 # ##
