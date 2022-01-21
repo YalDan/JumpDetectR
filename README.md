@@ -6,7 +6,7 @@
 
 Name of QuantLet : JumpDetectR
 
-Published in : 'To be published as "Understanding jumps in high frequency digital asset markets"'
+Published in : "Understanding jumps in high frequency digital asset markets" (https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3944865)
 
 Description : 'Scalable implementation of Lee / Mykland (2012) and Ait-Sahalia / Jacod / Li (2012) Jump tests for noisy high frequency data'
 
