@@ -19,11 +19,11 @@ Authors : Danial Florian Saef, Odett Nagy
 Submitted : May 7 2021 by Danial Saef
 ```
 
-![Picture1](plot_all_daily.png)
+![Picture1](./plots/plot_all_daily.png)
 
-![Picture2](jump_ltj.png)
+![Picture2](./plots/jump_ltj.png)
 
-![Picture3](plot_lm_jump.png)
+![Picture3](./plots/plot_lm_jump.png)
 
 ### R Code
 ```r
